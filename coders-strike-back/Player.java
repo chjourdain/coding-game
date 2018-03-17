@@ -3,8 +3,7 @@ import java.io.*;
 import java.math.*;
 
 /**
- * Auto-generated code below aims at helping you parse the standard input
- * according to the problem statement.
+ * Rank : 8912
  **/
 class Player {
     public static boolean bostremained = true;
@@ -54,23 +53,32 @@ class Player {
     }
 
     public static String calculateThrust(int nextCheckpointX, int nextCheckpointY, int nextCheckpointDist,
+                                          int nextCheckpointAngle) {
+        if ((nextCheckpointAngle > 80 && nextCheckpointAngle < 180)
+                || (nextCheckpointAngle < -80 && nextCheckpointAngle > -180)) {
+            return String.valueOf((int)(Math.abs(nextCheckpointAngle)* -0.6 + 140));
+        } else if (nextCheckpointAngle > 180 || nextCheckpointAngle < -180) {
+            return "40";
+        } else if (bostremained && nextCheckpointAngle == 0 && nextCheckpointDist > 7000) {
+            bostremained = false;
+            return "BOOST";
+        } else {
+            return "100";
+        }
+    }
+
+    public static String calculateThrustBad(int nextCheckpointX, int nextCheckpointY, int nextCheckpointDist,
                                          int nextCheckpointAngle) {
         if (nextCheckpointAngle > 90 || nextCheckpointAngle < -90) {
             System.err.println("using medium thrust");
             return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.9 + 181));
-
-            //return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -1.1111 + 198));
-            // } else if (nextCheckpointAngle > 180 || nextCheckpointAngle <
-            // -180) {
-            // System.err.println("using low thrust");
-            // return "40";
         } else if (bostremained && nextCheckpointAngle == 0 && nextCheckpointDist > 5500) {
             System.err.println("using BOOST");
             bostremained = false;
             return "BOOST";
         } else {
             System.err.println("using full thrust");
-            return "100";
+            return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.05 + 100));
         }
     }
 }
