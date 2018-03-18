@@ -3,10 +3,11 @@ import java.io.*;
 import java.math.*;
 
 /**
- * Rank : ???
+ * Rank : 13232
  **/
 class Player {
     public static boolean bostremained = true;
+    static boolean usingDirectionPrediction = false;
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
@@ -21,7 +22,8 @@ class Player {
         // game loop
         while (true) {
             //COLLECTING DATA
-            step = step++;
+//            step = step++;
+            usingDirectionPrediction = false;
             int x = in.nextInt();
             int y = in.nextInt();
             Position currentObjectif = new Position(in.nextInt(), in.nextInt());
@@ -30,20 +32,19 @@ class Player {
             int opponentX = in.nextInt();
             int opponentY = in.nextInt();
             if (!currentObjectif.equals(previousObjectif)) {
-                objectifs.add(0, currentObjectif);
+                //objectifs.add(0, currentObjectif);
                 gameObjectifs.add(currentObjectif);
             }
 
             //PROCESSING
-            Position direction = calculateDirection(gameObjectifs, currentObjectif,nextCheckpointDist);
-            int directionX = direction.getX();
-            int directionY = direction.getY();
-            System.err.println("paremeters nextCheckpointX=" + currentObjectif.getX() + "  nextCheckpointY=" + currentObjectif.getY()
+            Position direction = calculateDirection(gameObjectifs, currentObjectif, previousObjectif, nextCheckpointDist, nextCheckpointAngle);
+            int directionX = direction.x;
+            int directionY = direction.y;
+            System.err.println("paremeters nextCheckpointX=" + currentObjectif.x + "  nextCheckpointY=" + currentObjectif.y
                     + " nextCheckpointDist=" + nextCheckpointDist + " nextCheckpointAngle=" + nextCheckpointAngle);
 
             String thrust = calculateThrust(directionX, directionY, nextCheckpointDist, nextCheckpointAngle);
             thrust = skidModeration(thrust, previousAngle, nextCheckpointAngle, nextCheckpointDist, previousThrust);
-            System.err.println(directionX + " " + directionY + " " + thrust);
             System.out.println(directionX + " " + directionY + " " + thrust);
 
             // SAVE DATA FOR NEXT STEP
@@ -59,20 +60,26 @@ class Player {
         if (Math.abs(nextCheckpointAngle) >= Math.abs(previousAngle) && previousAngle != 0 && "100".equals(thrust) && "100".equals(previousThrust)
                 && nextCheckpointDist < 2500 && Math.abs(nextCheckpointAngle) > 17) {
             System.err.println("using skid régulation");
-            return "30";
+            return "25";
         }
 
         return thrust;
     }
 
-    public static Position calculateDirection(Set<Position> mapObjectives, Position currentObjectif, int distance) {
-        if (distance > 1000 || mapObjectives.size() < 3) {
+    //TODO ajout d'une limitation au bon angle
+    public static Position calculateDirection(Set<Position> mapObjectives, Position currentObjectif, Position previousObjectif, int distance, int angle) {
+        if (distance > 1100 || mapObjectives.size() < 3 || angle > 10) {
             return currentObjectif;
-        } else return baryCentreOtherObjectif(mapObjectives, currentObjectif);
+        } else
+            System.err.println("predicting next ojectif");
+        return baryCentreOtherObjectif(mapObjectives, Arrays.asList(currentObjectif, previousObjectif));
     }
 
     public static String calculateThrust(int nextCheckpointX, int nextCheckpointY, int nextCheckpointDist,
                                          int nextCheckpointAngle) {
+        if (usingDirectionPrediction) {
+            return "40";
+        }
         if ((nextCheckpointAngle > 80 && nextCheckpointAngle < 180)
                 || (nextCheckpointAngle < -80 && nextCheckpointAngle > -180)) {
             return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.6 + 140));
@@ -101,57 +108,37 @@ class Player {
         }
     }
 
-    private static Position baryCentreOtherObjectif(Set<Position> objectifs, Position objectifExcluded) {
-        int sumX = objectifs.stream().filter(x -> !x.equals(objectifExcluded)).mapToInt(Position::getX).sum();
-        int sumY = objectifs.stream().filter(x -> !x.equals(objectifExcluded)).mapToInt(Position::getY).sum();
-        return new Position(sumX / objectifs.size(), sumY / objectifs.size());
+    private static Position baryCentreOtherObjectif(Set<Position> objectifs, List<Position> objectifsExcluded) {
+        int sumX = objectifs.stream().mapToInt(x-> x.x).sum() - objectifsExcluded.stream().mapToInt(x-> x.x).sum();
+        int sumY = objectifs.stream().mapToInt(x -> x.y).sum() - objectifsExcluded.stream().mapToInt(x-> x.y).sum();
+        return new Position(sumX / (objectifs.size()- objectifsExcluded.size()), sumY / (objectifs.size()-objectifsExcluded.size()));
     }
 
 }
 
 //MODEL
 class Position {
-    int x;
-    int y;
+    public int x;
+    public int y;
 
     public Position(int x, int y) {
         this.x = x;
         this.y = y;
     }
 
-    public int getX() {
-        return x;
-    }
-
-    public void setX(int x) {
-        this.x = x;
-    }
-
-    public int getY() {
-        return y;
-    }
-
-    public void setY(int y) {
-        this.y = y;
-    }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
+        if (o == null) {
+            return false;
+        }
         Position position = (Position) o;
-
-        if (x != position.x) return false;
-        return y == position.y;
-
+        return x == position.x && y == position.y;
     }
 
     @Override
     public int hashCode() {
-        int result = x;
-        result = 31 * result + y;
-        return result;
+        return 2*x + y;
     }
 
     @Override
@@ -163,6 +150,6 @@ class Position {
     }
 
     public int distance(Position position) {
-        return (int) Math.sqrt((this.x - position.getX()) * (this.x - position.getX()) * +(this.y - position.getY()) * (this.y - position.getY()));
+        return (int) Math.sqrt((this.x - position.x) * (this.x - position.x) * +(this.y - position.y) * (this.y - position.y));
     }
 }
