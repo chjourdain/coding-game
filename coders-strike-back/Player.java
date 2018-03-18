@@ -3,7 +3,7 @@ import java.io.*;
 import java.math.*;
 
 /**
- * Rank : 13232
+ * Rank : 8370
  **/
 class Player {
     public static boolean bostremained = true;
@@ -43,7 +43,7 @@ class Player {
 
             String thrust = calculateThrust(nextCheckpointDist, nextCheckpointAngle);
             thrust = skidModeration(thrust, previousAngle, nextCheckpointAngle, nextCheckpointDist, previousThrust);
-            Position direction = calculateDirection(gameObjectifs, currentObjectif, objectifs.get(1), nextCheckpointDist, nextCheckpointAngle);
+            Position direction = calculateDirection(gameObjectifs, currentObjectif,objectifs.size()> 2 ? objectifs.get(1) : null, nextCheckpointDist, nextCheckpointAngle);
             int directionX = direction.x;
             int directionY = direction.y;
             System.out.println(directionX + " " + directionY + " " + thrust);
@@ -62,7 +62,7 @@ class Player {
                 && nextCheckpointDist < 3000 && Math.abs(nextCheckpointAngle) > 5) || (nextCheckpointDist < 1000 && Math.abs(previousAngle) > 20)) {
             System.err.println("using skid régulation");
             stepWithoutPrediction = 11;
-            return nextCheckpointAngle > 10 ? "15" : "25";
+            return nextCheckpointAngle > 15 ? "20" : "40";
         }
         stepWithoutPrediction = stepWithoutPrediction--;
         return thrust;
@@ -79,12 +79,9 @@ class Player {
 
     public static String calculateThrust(int nextCheckpointDist,
                                          int nextCheckpointAngle) {
-        if (usingDirectionPrediction) {
-            return "40";
-        }
         if ((nextCheckpointAngle > 80 && nextCheckpointAngle < 180)
                 || (nextCheckpointAngle < -80 && nextCheckpointAngle > -180)) {
-            return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.6 + 140));
+            return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.7 + 156));
         } else if (bostremained && nextCheckpointAngle == 0 && nextCheckpointDist > 5000) {
             bostremained = false;
             return "BOOST";
@@ -94,6 +91,9 @@ class Player {
     }
 
     private static Position baryCentreOtherObjectif(Set<Position> objectifs, List<Position> objectifsExcluded) {
+        System.err.println(objectifs);
+        System.err.println(objectifsExcluded);
+
         int sumX = objectifs.stream().mapToInt(x-> x.x).sum() - objectifsExcluded.stream().mapToInt(x-> x.x).sum();
         int sumY = objectifs.stream().mapToInt(x -> x.y).sum() - objectifsExcluded.stream().mapToInt(x-> x.y).sum();
         return new Position(sumX / (objectifs.size()- objectifsExcluded.size()), sumY / (objectifs.size()-objectifsExcluded.size()));
