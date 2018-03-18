@@ -8,7 +8,7 @@ import java.math.*;
 class Player {
     public static boolean bostremained = true;
     static boolean usingDirectionPrediction = false;
-    static boolean wasUsingSkipRegulation = false;
+    static int stepWithoutPrediction = 0;
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
@@ -38,14 +38,14 @@ class Player {
             }
 
             //PROCESSING
-            Position direction = calculateDirection(gameObjectifs, currentObjectif, previousObjectif, nextCheckpointDist, nextCheckpointAngle);
-            int directionX = direction.x;
-            int directionY = direction.y;
             System.err.println("paremeters nextCheckpointX=" + currentObjectif.x + "  nextCheckpointY=" + currentObjectif.y
                     + " nextCheckpointDist=" + nextCheckpointDist + " nextCheckpointAngle=" + nextCheckpointAngle);
 
-            String thrust = calculateThrust(directionX, directionY, nextCheckpointDist, nextCheckpointAngle);
+            String thrust = calculateThrust(nextCheckpointDist, nextCheckpointAngle);
             thrust = skidModeration(thrust, previousAngle, nextCheckpointAngle, nextCheckpointDist, previousThrust);
+            Position direction = calculateDirection(gameObjectifs, currentObjectif, previousObjectif, nextCheckpointDist, nextCheckpointAngle);
+            int directionX = direction.x;
+            int directionY = direction.y;
             System.out.println(directionX + " " + directionY + " " + thrust);
 
             // SAVE DATA FOR NEXT STEP
@@ -59,25 +59,25 @@ class Player {
     private static String skidModeration(String thrust, int previousAngle, int nextCheckpointAngle,
                                          int nextCheckpointDist, String previousThrust) {
         if ((Math.abs(nextCheckpointAngle) >= Math.abs(previousAngle) && previousAngle != 0 && "100".equals(thrust) && "100".equals(previousThrust)
-                && nextCheckpointDist < 2500 && Math.abs(nextCheckpointAngle) > 17) || (nextCheckpointDist < 1000 && Math.abs(previousAngle) > 20)) {
+                && nextCheckpointDist < 3000 && Math.abs(nextCheckpointAngle) > 5) || (nextCheckpointDist < 1000 && Math.abs(previousAngle) > 20)) {
             System.err.println("using skid régulation");
-            wasUsingSkipRegulation = true;
-            return "25";
+            stepWithoutPrediction = 11;
+            return nextCheckpointAngle > 10 ? "15" : "25";
         }
-        wasUsingSkipRegulation = false;
+        stepWithoutPrediction = stepWithoutPrediction--;
         return thrust;
     }
 
     //TODO ajout d'une limitation au bon angle
     public static Position calculateDirection(Set<Position> mapObjectives, Position currentObjectif, Position previousObjectif, int distance, int angle) {
-        if (wasUsingSkipRegulation || distance > 1100 || mapObjectives.size() < 3 || angle > 10) {
+        if (stepWithoutPrediction > 0 || distance > 1100 || mapObjectives.size() < 3 || angle > 10) {
             return currentObjectif;
         } else
             System.err.println("predicting next ojectif");
         return baryCentreOtherObjectif(mapObjectives, Arrays.asList(currentObjectif, previousObjectif));
     }
 
-    public static String calculateThrust(int nextCheckpointX, int nextCheckpointY, int nextCheckpointDist,
+    public static String calculateThrust(int nextCheckpointDist,
                                          int nextCheckpointAngle) {
         if (usingDirectionPrediction) {
             return "40";
