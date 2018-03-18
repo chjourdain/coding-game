@@ -8,6 +8,7 @@ import java.math.*;
 class Player {
     public static boolean bostremained = true;
     static boolean usingDirectionPrediction = false;
+    static boolean wasUsingSkipRegulation = false;
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
@@ -57,18 +58,19 @@ class Player {
     // INTELIGENCE
     private static String skidModeration(String thrust, int previousAngle, int nextCheckpointAngle,
                                          int nextCheckpointDist, String previousThrust) {
-        if (Math.abs(nextCheckpointAngle) >= Math.abs(previousAngle) && previousAngle != 0 && "100".equals(thrust) && "100".equals(previousThrust)
-                && nextCheckpointDist < 2500 && Math.abs(nextCheckpointAngle) > 17) {
+        if ((Math.abs(nextCheckpointAngle) >= Math.abs(previousAngle) && previousAngle != 0 && "100".equals(thrust) && "100".equals(previousThrust)
+                && nextCheckpointDist < 2500 && Math.abs(nextCheckpointAngle) > 17) || (nextCheckpointDist < 1000 && Math.abs(previousAngle) > 20)) {
             System.err.println("using skid régulation");
+            wasUsingSkipRegulation = true;
             return "25";
         }
-
+        wasUsingSkipRegulation = false;
         return thrust;
     }
 
     //TODO ajout d'une limitation au bon angle
     public static Position calculateDirection(Set<Position> mapObjectives, Position currentObjectif, Position previousObjectif, int distance, int angle) {
-        if (distance > 1100 || mapObjectives.size() < 3 || angle > 10) {
+        if (wasUsingSkipRegulation || distance > 1100 || mapObjectives.size() < 3 || angle > 10) {
             return currentObjectif;
         } else
             System.err.println("predicting next ojectif");
@@ -90,21 +92,6 @@ class Player {
             return "BOOST";
         } else {
             return "100";
-        }
-    }
-
-    public static String calculateThrustBad(int nextCheckpointX, int nextCheckpointY, int nextCheckpointDist,
-                                            int nextCheckpointAngle) {
-        if (nextCheckpointAngle > 90 || nextCheckpointAngle < -90) {
-            System.err.println("using medium thrust");
-            return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.9 + 181));
-        } else if (bostremained && nextCheckpointAngle == 0 && nextCheckpointDist > 5500) {
-            System.err.println("using BOOST");
-            bostremained = false;
-            return "BOOST";
-        } else {
-            System.err.println("using full thrust");
-            return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.05 + 100));
         }
     }
 
