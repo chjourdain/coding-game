@@ -3,7 +3,7 @@ import java.io.*;
 import java.math.*;
 
 /**
- * Rank : 8912
+ * Rank : ???
  **/
 class Player {
     public static boolean bostremained = true;
@@ -16,7 +16,7 @@ class Player {
         String previousThrust = "0";
         Position previousObjectif = null;
         List<Position> objectifs = new LinkedList<>();
-
+        Set<Position> gameObjectifs = new HashSet<>();
 
         // game loop
         while (true) {
@@ -31,12 +31,14 @@ class Player {
             int opponentY = in.nextInt();
             if (!currentObjectif.equals(previousObjectif)) {
                 objectifs.add(0, currentObjectif);
+                gameObjectifs.add(currentObjectif);
             }
 
             //PROCESSING
-            int directionX = currentObjectif.getX();
-            int directionY = currentObjectif.getY();
-            System.err.println("paremeters nextCheckpointX=" + directionX + "  nextCheckpointY=" + directionY
+            Position direction = calculateDirection(gameObjectifs, currentObjectif,nextCheckpointDist);
+            int directionX = direction.getX();
+            int directionY = direction.getY();
+            System.err.println("paremeters nextCheckpointX=" + currentObjectif.getX() + "  nextCheckpointY=" + currentObjectif.getY()
                     + " nextCheckpointDist=" + nextCheckpointDist + " nextCheckpointAngle=" + nextCheckpointAngle);
 
             String thrust = calculateThrust(directionX, directionY, nextCheckpointDist, nextCheckpointAngle);
@@ -57,10 +59,16 @@ class Player {
         if (Math.abs(nextCheckpointAngle) >= Math.abs(previousAngle) && previousAngle != 0 && "100".equals(thrust) && "100".equals(previousThrust)
                 && nextCheckpointDist < 2500 && Math.abs(nextCheckpointAngle) > 17) {
             System.err.println("using skid régulation");
-            return "20";
+            return "30";
         }
 
         return thrust;
+    }
+
+    public static Position calculateDirection(Set<Position> mapObjectives, Position currentObjectif, int distance) {
+        if (distance > 1000 || mapObjectives.size() < 3) {
+            return currentObjectif;
+        } else return baryCentreOtherObjectif(mapObjectives, currentObjectif);
     }
 
     public static String calculateThrust(int nextCheckpointX, int nextCheckpointY, int nextCheckpointDist,
@@ -93,6 +101,11 @@ class Player {
         }
     }
 
+    private static Position baryCentreOtherObjectif(Set<Position> objectifs, Position objectifExcluded) {
+        int sumX = objectifs.stream().filter(x -> !x.equals(objectifExcluded)).mapToInt(Position::getX).sum();
+        int sumY = objectifs.stream().filter(x -> !x.equals(objectifExcluded)).mapToInt(Position::getY).sum();
+        return new Position(sumX / objectifs.size(), sumY / objectifs.size());
+    }
 
 }
 
