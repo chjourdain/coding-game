@@ -33,7 +33,7 @@ class Player {
             int opponentX = in.nextInt();
             int opponentY = in.nextInt();
             if (!currentObjectif.equals(previousObjectif)) {
-                //objectifs.add(0, currentObjectif);
+                objectifs.add(0, currentObjectif);
                 gameObjectifs.add(currentObjectif);
             }
 
@@ -43,7 +43,7 @@ class Player {
 
             String thrust = calculateThrust(nextCheckpointDist, nextCheckpointAngle);
             thrust = skidModeration(thrust, previousAngle, nextCheckpointAngle, nextCheckpointDist, previousThrust);
-            Position direction = calculateDirection(gameObjectifs, currentObjectif, previousObjectif, nextCheckpointDist, nextCheckpointAngle);
+            Position direction = calculateDirection(gameObjectifs, currentObjectif, objectifs.get(1), nextCheckpointDist, nextCheckpointAngle);
             int directionX = direction.x;
             int directionY = direction.y;
             System.out.println(directionX + " " + directionY + " " + thrust);
@@ -70,7 +70,7 @@ class Player {
 
     //TODO ajout d'une limitation au bon angle
     public static Position calculateDirection(Set<Position> mapObjectives, Position currentObjectif, Position previousObjectif, int distance, int angle) {
-        if (stepWithoutPrediction > 0 || distance > 1100 || mapObjectives.size() < 3 || angle > 10) {
+        if (stepWithoutPrediction > 0 || distance > 1500 || mapObjectives.size() < 3 || angle > 10) {
             return currentObjectif;
         } else
             System.err.println("predicting next ojectif");
@@ -85,13 +85,11 @@ class Player {
         if ((nextCheckpointAngle > 80 && nextCheckpointAngle < 180)
                 || (nextCheckpointAngle < -80 && nextCheckpointAngle > -180)) {
             return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.6 + 140));
-        } else if (nextCheckpointAngle > 180 || nextCheckpointAngle < -180) {
-            return "40";
-        } else if (bostremained && nextCheckpointAngle == 0 && nextCheckpointDist > 7000) {
+        } else if (bostremained && nextCheckpointAngle == 0 && nextCheckpointDist > 5000) {
             bostremained = false;
             return "BOOST";
         } else {
-            return "100";
+            return String.valueOf((int) (Math.abs(nextCheckpointAngle) * -0.2 + 100));
         }
     }
 
