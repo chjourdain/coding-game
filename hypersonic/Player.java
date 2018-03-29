@@ -73,9 +73,12 @@ class Player {
 
             // Playing
 
-            int[][] boxeValue = boxes.stream().map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, BOXE_PROPAGATION))
+            int[][] boxeValue = boxes.stream()//.peek(b -> System.err.println("box "+b))
+                    .map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, BOXE_PROPAGATION))
+                  //  .peek(x -> printMatrice(x))
                     .reduce(new int[width][height], (x, y) -> addMatrice(x, y));
             int[][] playerValue = findRoundMatrice(map, me.x, me.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
+            playerValue[me.x][me.y] = PLAYER_VALUE;
             System.err.println("my player");
             printMatrice(playerValue);
             int[][] path = addMatrice(playerValue, boxeValue);
@@ -114,12 +117,13 @@ class Player {
     }
 
     private static int[][] addMatrice(int[][] mat1, int[][] mat2) {
+        int[][] sum = new int[width][height];
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
-                mat1[x][y] += mat2[x][y];
+                sum[x][y] = mat1[x][y] + mat2[x][y];
             }
         }
-        return mat1;
+        return sum;
     }
 
     private static int[][] findMatrice(char[][] map, int positionX, int positionY, int value, int diminution, int propagation) {
