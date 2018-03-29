@@ -9,6 +9,7 @@ import java.util.Scanner;
 class Player {
     static int width;
     static int height;
+    static int myId;
     //parameter
 
     static final int BOXE_PROPAGATION = 2;
@@ -27,7 +28,7 @@ class Player {
         Scanner in = new Scanner(System.in);
         width = in.nextInt();
         height = in.nextInt();
-        int myId = in.nextInt();
+        myId = in.nextInt();
 
         // game loop
         while (true) {
@@ -60,11 +61,11 @@ class Player {
                 int param2 = in.nextInt();
 
                 if (entityType == 0) {
-                    if (owner == 0) {
+                    if (owner == myId) {
                         me = new Position(x, y);
                     }
                 } else {
-                    if (owner == 0) {
+                    if (owner == myId) {
                         myBomb = new Position(x, y);
                     }
                     bombs.add(new Position(x, y));
@@ -92,7 +93,10 @@ class Player {
 
             String decision = "MOVE";
             System.err.println("my bomb" + myBomb);
-            if (myBomb == null && (path[me.x][me.y] > MIN_BOMB || path[me.x][me.y] > current_max - 2 * BOXE_DIMINUTION)) {
+            System.err.println("my position value " + path[me.x][me.y]);
+
+
+            if (myBomb == null && (path[me.x][me.y] >= MIN_BOMB || path[me.x][me.y] > current_max - 2 * BOXE_DIMINUTION)) {
                 decision = "BOMB";
             }
              System.err.println("go to " +toGo);
