@@ -1,0 +1,169 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+
+/**
+ * Auto-generated code below aims at helping you parse the standard input
+ * according to the problem statement.
+ **/
+class Player {
+    static int width;
+    static int height;
+    //parameter
+
+    static final int BOXE_PROPAGATION = 3;
+    static final int BOXE_VALUE = 40;
+    static final int BOXE_DIMINUTION = 2;
+    static final int PLAYER_PROPAGATION = 3;
+    static final int PLAYER_VALUE = 24;
+    static final int PLAYER_DIMINUTION = 1;
+
+    static final int MIN_BOMB = 70;
+
+    static int current_max;
+
+
+    public static void main(String args[]) {
+        Scanner in = new Scanner(System.in);
+        width = in.nextInt();
+        height = in.nextInt();
+        int myId = in.nextInt();
+
+        // game loop
+        while (true) {
+            // loop var
+            List<Position> boxes = new ArrayList<>();
+            char[][] map = new char[width][height];
+            Position me = null;
+            Position myBomb = null;
+            List<Position> bombs = new ArrayList<>();
+
+
+            // collecting data
+            for (int i = 0; i < height; i++) {
+                String row = in.next(); // . floor 0 box
+                char[] line = row.toCharArray();
+                for (int x = 0; x < line.length; x++) {
+                    map[x][i] = line[x];
+                    if ('0' == line[x]) {
+                        boxes.add(new Position(x, i));
+                    }
+                }
+            }
+            int entities = in.nextInt();
+            for (int i = 0; i < entities; i++) {
+                int entityType = in.nextInt(); // player 0 bomb 1
+                int owner = in.nextInt(); // 0 me other 1
+                int x = in.nextInt();
+                int y = in.nextInt();
+                int param1 = in.nextInt();
+                int param2 = in.nextInt();
+
+                if (entityType == 0) {
+                    if (owner == 0) {
+                        me = new Position(x, y);
+                    }
+                } else {
+                    if (owner == 0) {
+                        myBomb = new Position(x, y);
+                    }
+                    bombs.add(new Position(x, y));
+                }
+            }
+
+            // Playing
+
+            int[][] boxeValue = boxes.stream().map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, BOXE_PROPAGATION))
+                    .reduce(new int[width][height], (x, y) -> addMatrice(x, y));
+            int[][] playerValue = findMatrice(map, me.x, me.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
+            // To debug: System.err.println("Debug messages...");
+            int[][] path = addMatrice(playerValue, boxeValue);
+
+            bombs.forEach(b -> eraseMatrice(path, b.x, b.y, 0, 3));
+
+            Position toGo = findMax(path);
+            String decision = "MOVE";
+            if(myBomb == null && (path[me.x][me.y] > MIN_BOMB || path[me.x][me.y] == current_max)) {
+                decision="BOMB";
+            }
+            System.out.println(decision +" " + toGo.x + " " + toGo.y);
+        }
+    }
+
+    private static Position findMax(int[][] mat) {
+        current_max = 0;
+        Position pos = null;
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                if (mat[x][y] > current_max) {
+                    current_max = mat[x][y];
+                    pos = new Position(x, y);
+                }
+            }
+        }
+        return pos;
+    }
+
+    private static int[][] addMatrice(int[][] mat1, int[][] mat2) {
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                mat1[x][y] += mat2[x][y];
+            }
+        }
+        return mat1;
+    }
+
+    private static int[][] findMatrice(char[][] map, int positionX, int positionY, int value, int diminution, int propagation) {
+        int[][] matrice = new int[width][height];
+        propagate(matrice, map, 1, 1, positionX, positionY, value, diminution, propagation);
+        propagate(matrice, map, 1, -1, positionX, positionY, value, diminution, propagation);
+        propagate(matrice, map, -1, 1, positionX, positionY, value, diminution, propagation);
+        propagate(matrice, map, -1, -1, positionX, positionY, value, diminution, propagation);
+        return matrice;
+    }
+
+    private static void propagate(int[][] matrice, char[][] map, int directionX, int directionY, int positionX, int positionY, int value, int diminution, int propagation) {
+        for (int step = 1; step <= propagation; step++) {
+            for (int stepY = 0; stepY < step; stepY++) {
+                int valueX = positionX + directionX * (step - stepY);
+                int valueY = positionY + directionY * (stepY);
+                if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height && map[valueX][valueY] == '.') {
+                    int valueT = value - step * diminution;
+                    matrice[valueX][valueY] = valueT;
+                }
+            }
+        }
+    }
+
+    private static int[][] eraseMatrice(int[][] matrice, int positionX, int positionY, int value, int propagation) {
+        erase(matrice, 1, 1, positionX, positionY, value, propagation);
+        erase(matrice, 1, -1, positionX, positionY, value, propagation);
+        erase(matrice, -1, 1, positionX, positionY, value, propagation);
+        erase(matrice, -1, -1, positionX, positionY, value, propagation);
+        return matrice;
+    }
+
+    private static void erase(int[][] matrice, int directionX, int directionY, int positionX, int positionY, int value, int propagation) {
+        for (int step = 1; step <= propagation; step++) {
+            for (int stepY = 0; stepY < step; stepY++) {
+                int valueX = positionX + directionX * (step - stepY);
+                int valueY = positionY + directionY * (stepY);
+                if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height) {
+                    matrice[valueX][valueY] = value;
+                }
+            }
+        }
+    }
+
+
+}
+
+class Position {
+    int x;
+    int y;
+
+    public Position(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+}
