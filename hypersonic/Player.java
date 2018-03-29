@@ -11,10 +11,10 @@ class Player {
     static int height;
     //parameter
 
-    static final int BOXE_PROPAGATION = 3;
+    static final int BOXE_PROPAGATION = 2;
     static final int BOXE_VALUE = 40;
     static final int BOXE_DIMINUTION = 2;
-    static final int PLAYER_PROPAGATION = 3;
+    static final int PLAYER_PROPAGATION = 24;
     static final int PLAYER_VALUE = 24;
     static final int PLAYER_DIMINUTION = 1;
 
@@ -75,18 +75,27 @@ class Player {
 
             int[][] boxeValue = boxes.stream().map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, BOXE_PROPAGATION))
                     .reduce(new int[width][height], (x, y) -> addMatrice(x, y));
-            int[][] playerValue = findMatrice(map, me.x, me.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
-            // To debug: System.err.println("Debug messages...");
+            int[][] playerValue = findRoundMatrice(map, me.x, me.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
+            System.err.println("my player");
+            printMatrice(playerValue);
             int[][] path = addMatrice(playerValue, boxeValue);
 
-            bombs.forEach(b -> eraseMatrice(path, b.x, b.y, 0, 3));
+            bombs.forEach(b -> {
+                eraseMatrice(path, b.x, b.y, 0, BOXE_PROPAGATION);
+                path[b.x][b.y] = 0;
+            });
 
             Position toGo = findMax(path);
+
             String decision = "MOVE";
-            if(myBomb == null && (path[me.x][me.y] > MIN_BOMB || path[me.x][me.y] == current_max)) {
-                decision="BOMB";
+            System.err.println("my bomb" + myBomb);
+            if (myBomb == null && (path[me.x][me.y] > MIN_BOMB || path[me.x][me.y] > current_max - 2 * BOXE_DIMINUTION)) {
+                decision = "BOMB";
             }
-            System.out.println(decision +" " + toGo.x + " " + toGo.y);
+             System.err.println("go to " +toGo);
+            System.err.println("current max is :" + current_max);
+            printMatrice(path);
+            System.out.println(decision + " " + toGo.x + " " + toGo.y);
         }
     }
 
@@ -115,14 +124,63 @@ class Player {
 
     private static int[][] findMatrice(char[][] map, int positionX, int positionY, int value, int diminution, int propagation) {
         int[][] matrice = new int[width][height];
-        propagate(matrice, map, 1, 1, positionX, positionY, value, diminution, propagation);
-        propagate(matrice, map, 1, -1, positionX, positionY, value, diminution, propagation);
-        propagate(matrice, map, -1, 1, positionX, positionY, value, diminution, propagation);
-        propagate(matrice, map, -1, -1, positionX, positionY, value, diminution, propagation);
+        propagate(matrice, map, 1, 0, positionX, positionY, value, diminution, propagation);
+        propagate(matrice, map, 0, -1, positionX, positionY, value, diminution, propagation);
+        propagate(matrice, map, -1, 0, positionX, positionY, value, diminution, propagation);
+        propagate(matrice, map, 0, 1, positionX, positionY, value, diminution, propagation);
         return matrice;
     }
 
     private static void propagate(int[][] matrice, char[][] map, int directionX, int directionY, int positionX, int positionY, int value, int diminution, int propagation) {
+        for (int step = 1; step <= propagation; step++) {
+            int valueX = positionX + directionX * (step);
+            int valueY = positionY + directionY * (step);
+            if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height && map[valueX][valueY] == '.') {
+                int valueT = value - step * diminution;
+                matrice[valueX][valueY] = valueT;
+            }
+        }
+    }
+
+    private static int[][] eraseMatrice(int[][] matrice, int positionX, int positionY, int value, int propagation) {
+        erase(matrice, 1, 0, positionX, positionY, value, propagation);
+        erase(matrice, -1, 0, positionX, positionY, value, propagation);
+        erase(matrice, 0, 1, positionX, positionY, value, propagation);
+        erase(matrice, 0, -1, positionX, positionY, value, propagation);
+        return matrice;
+    }
+
+    private static void erase(int[][] matrice, int directionX, int directionY, int positionX, int positionY, int value, int propagation) {
+        for (int step = 1; step <= propagation; step++) {
+            int valueX = positionX + directionX * (step);
+            int valueY = positionY + directionY * (step);
+            if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height) {
+                matrice[valueX][valueY] = value;
+            }
+        }
+    }
+
+    private static void printMatrice(int[][] mat) {
+        for (int y = 0; y < height; y++) {
+            String row = "";
+            for (int x = 0; x < width; x++) {
+                row += mat[x][y] + "  ";
+            }
+            System.err.println(row);
+        }
+    }
+
+
+    private static int[][] findRoundMatrice(char[][] map, int positionX, int positionY, int value, int diminution, int propagation) {
+        int[][] matrice = new int[width][height];
+        propagateRoundX(matrice, map, -1, 1, positionX, positionY, value, diminution, propagation);
+        propagateRoundX(matrice, map, 1, -1, positionX, positionY, value, diminution, propagation);
+        propagateRoundY(matrice, map, 1, 1, positionX, positionY, value, diminution, propagation);
+        propagateRoundY(matrice, map, -1, -1, positionX, positionY, value, diminution, propagation);
+        return matrice;
+    }
+
+    private static void propagateRoundX(int[][] matrice, char[][] map, int directionX, int directionY, int positionX, int positionY, int value, int diminution, int propagation) {
         for (int step = 1; step <= propagation; step++) {
             for (int stepY = 0; stepY < step; stepY++) {
                 int valueX = positionX + directionX * (step - stepY);
@@ -135,26 +193,18 @@ class Player {
         }
     }
 
-    private static int[][] eraseMatrice(int[][] matrice, int positionX, int positionY, int value, int propagation) {
-        erase(matrice, 1, 1, positionX, positionY, value, propagation);
-        erase(matrice, 1, -1, positionX, positionY, value, propagation);
-        erase(matrice, -1, 1, positionX, positionY, value, propagation);
-        erase(matrice, -1, -1, positionX, positionY, value, propagation);
-        return matrice;
-    }
-
-    private static void erase(int[][] matrice, int directionX, int directionY, int positionX, int positionY, int value, int propagation) {
+    private static void propagateRoundY(int[][] matrice, char[][] map, int directionX, int directionY, int positionX, int positionY, int value, int diminution, int propagation) {
         for (int step = 1; step <= propagation; step++) {
-            for (int stepY = 0; stepY < step; stepY++) {
-                int valueX = positionX + directionX * (step - stepY);
-                int valueY = positionY + directionY * (stepY);
-                if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height) {
-                    matrice[valueX][valueY] = value;
+            for (int stepX = 0; stepX < step; stepX++) {
+                int valueX = positionX + directionX * (stepX);
+                int valueY = positionY + directionY * (step - stepX);
+                if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height && map[valueX][valueY] == '.') {
+                    int valueT = value - step * diminution;
+                    matrice[valueX][valueY] = valueT;
                 }
             }
         }
     }
-
 
 }
 
@@ -162,8 +212,17 @@ class Position {
     int x;
     int y;
 
+    @Override
+    public String toString() {
+        return "Pos{" +
+                "x=" + x +
+                ", y=" + y +
+                '}';
+    }
+
     public Position(int x, int y) {
         this.x = x;
         this.y = y;
     }
+
 }
