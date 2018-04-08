@@ -6,6 +6,10 @@ import java.util.Scanner;
  * Auto-generated code below aims at helping you parse the standard input
  * according to the problem statement.
  **/
+
+//TODO list : ignore boxe that will explode
+    // pick up item
+    // do calculation thank to items
 class Player {
     static int width;
     static int height;
@@ -35,9 +39,10 @@ class Player {
             // loop var
             List<Position> boxes = new ArrayList<>();
             char[][] map = new char[width][height];
-            Position me = null;
-            Position myBomb = null;
-            List<Position> bombs = new ArrayList<>();
+          //  Position me = null;
+          //  Position myBomb = null;
+            BomberMan[] bombermans = new BomberMan[4];
+            List<Bomb> bombs = new ArrayList<>();
 
 
             // collecting data
@@ -46,7 +51,7 @@ class Player {
                 char[] line = row.toCharArray();
                 for (int x = 0; x < line.length; x++) {
                     map[x][i] = line[x];
-                    if ('0' == line[x]) {
+                    if ('.' != line[x]) {
                         boxes.add(new Position(x, i));
                     }
                 }
@@ -60,15 +65,15 @@ class Player {
                 int param1 = in.nextInt();
                 int param2 = in.nextInt();
 
-                if (entityType == 0) {
-                    if (owner == myId) {
-                        me = new Position(x, y);
-                    }
-                } else {
-                    if (owner == myId) {
-                        myBomb = new Position(x, y);
-                    }
-                    bombs.add(new Position(x, y));
+                switch (entityType) {
+                    case 0 :
+                    bombermans[owner] = new BomberMan(x, y ,param1, param2);
+                        break;
+                    case 1:
+                    bombs.add(new Bomb(x, y, param1,param2));
+                        break;
+                    case 2 :
+                        break;
                 }
             }
 
@@ -78,25 +83,22 @@ class Player {
                     .map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, BOXE_PROPAGATION))
                   //  .peek(x -> printMatrice(x))
                     .reduce(new int[width][height], (x, y) -> addMatrice(x, y));
-            int[][] playerValue = findRoundMatrice(map, me.x, me.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
-            playerValue[me.x][me.y] = PLAYER_VALUE;
+            int[][] playerValue = findRoundMatrice(map, bombermans[myId].pos.x, bombermans[myId].pos.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
+            playerValue[bombermans[myId].pos.x][bombermans[myId].pos.y] = PLAYER_VALUE;
             System.err.println("my player");
             printMatrice(playerValue);
             int[][] path = addMatrice(playerValue, boxeValue);
 
             bombs.forEach(b -> {
-                eraseMatrice(path, b.x, b.y, 0, BOXE_PROPAGATION);
-                path[b.x][b.y] = 0;
+                eraseMatrice(path, b.pos.x, b.pos.y, 0, BOXE_PROPAGATION);
+                path[b.pos.x][b.pos.y] = 0;
             });
 
             Position toGo = findMax(path);
 
             String decision = "MOVE";
-            System.err.println("my bomb" + myBomb);
-            System.err.println("my position value " + path[me.x][me.y]);
 
-
-            if (myBomb == null && (path[me.x][me.y] >= MIN_BOMB || path[me.x][me.y] > current_max - 2 * BOXE_DIMINUTION)) {
+            if (bombermans[myId].bombs > 0 && (path[bombermans[myId].pos.x][bombermans[myId].pos.y] >= MIN_BOMB || path[bombermans[myId].pos.x][bombermans[myId].pos.y] > current_max - 2 * BOXE_DIMINUTION)) {
                 decision = "BOMB";
             }
              System.err.println("go to " +toGo);
@@ -233,4 +235,28 @@ class Position {
         this.y = y;
     }
 
+}
+
+class Bomb {
+    Position pos;
+    int range;
+    int countdown;
+
+    public Bomb(int x, int y, int range, int countdown) {
+        this.pos = new Position(x,y);
+        this.range = range;
+        this.countdown = countdown;
+    }
+}
+
+class BomberMan {
+    Position pos;
+    int bombs;
+    int rangeUp;
+
+    public BomberMan(int x, int y, int param1, int param2) {
+        this.pos = new Position(x,y);
+        this.bombs = param1;
+        this.rangeUp = param2;
+    }
 }
