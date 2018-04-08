@@ -1,3 +1,5 @@
+import javafx.geometry.Pos;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -12,7 +14,9 @@ import java.util.Scanner;
 //TODO list :
 // pick up item better
 // calculate global path and subdivise detour
-// calculate propagation stoped on box hiting
+// calculate propagation stoped on box hiting and wall
+// moveout of explosion
+// mveout of other player plans
 
 class Player {
     static int width;
@@ -35,6 +39,7 @@ class Player {
     static final int MIN_BOMB = 100;
 
     static int current_max;
+    static char[][] map;
 
 
     public static void main(String args[]) {
@@ -48,7 +53,7 @@ class Player {
             Instant start = Instant.now();
             // loop var
             List<Position> boxes = new ArrayList<>();
-            char[][] map = new char[width][height];
+            map = new char[width][height];
             //  Position me = null;
             //  Position myBomb = null;
             List<Bomb> bombs = new ArrayList<>();
@@ -62,7 +67,7 @@ class Player {
                 char[] line = row.toCharArray();
                 for (int x = 0; x < line.length; x++) {
                     map[x][i] = line[x];
-                    if ('.' != line[x]) {
+                    if ('.' != line[x] && 'x' != line[x]) {
                         boxes.add(new Position(x, i));
                     }
                 }
@@ -96,7 +101,9 @@ class Player {
             System.err.println("ME :" + bombermans[myId]);
 
 
-            List<Position> willExploseAera = findExplodingAera(bombs);
+            List<Position> willExploseAera = findExplodingAera(bombs, 9);
+            List<Position> willExploseAeraIn1Or2 = findExplodingAera(bombs, 2);
+
             int boxePorpagation = bombermans[myId].range - 1;
 
             // Playing
@@ -109,11 +116,6 @@ class Player {
             int[][] playerValue = findRoundMatrice(map, bombermans[myId].pos.x, bombermans[myId].pos.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
             playerValue[bombermans[myId].pos.x][bombermans[myId].pos.y] = PLAYER_VALUE;
             int[][] path = addMatrice(playerValue, boxeValue);
-
-//            bombs.forEach(b -> {
-//                //eraseMatrice(path, b.pos.x, b.pos.y, 0, BOXE_PROPAGATION_STANDARD);
-//                path[b.pos.x][b.pos.y] = 0;
-//            });
 
             Position toGo = findMax(path);
 
@@ -150,23 +152,20 @@ class Player {
 
     private static int[][] addBombItemValue(int[][] mat, List<Position> bombsItem) {
         int value;
-        System.err.println("addind vlue of bomb size :  " + bombsItem.size());
         switch (bombermans[myId].bombs) {
-            case 0 : value=BOMB_ITEM_NOMINAL;
+            case 0:
+                value = BOMB_ITEM_NOMINAL;
                 break;
-            case 1 : value = BOMB_ITEM_NOMINAL / 2 ;
+            case 1:
+                value = BOMB_ITEM_NOMINAL / 2;
                 break;
-            default: value=0;
+            default:
+                value = 0;
         }
-        System.err.println("addind value :  " + value);
-
         printMatrice(mat);
         bombsItem.forEach(
                 b -> {
-                    System.err.println(" for bomb " +b );
-                    System.err.println("value was " + mat[b.x][b.y] );
                     mat[b.x][b.y] = value + mat[b.x][b.y];
-                    System.err.println("value is now "  + mat[b.x][b.y] );
                 }
         );
         printMatrice(mat);
@@ -176,9 +175,11 @@ class Player {
     private static int[][] addRangeUpItemValue(int[][] mat, List<Position> rangeUpItem) {
         int value;
         switch (bombermans[myId].range) {
-            case 3 : value=RANGE_ITEM_NOMINAL;
+            case 3:
+                value = RANGE_ITEM_NOMINAL;
                 break;
-            default: value=RANGE_ITEM_NOMINAL / 2 ;
+            default:
+                value = RANGE_ITEM_NOMINAL / 2;
         }
         rangeUpItem.forEach(
                 b -> mat[b.x][b.y] += value
@@ -198,41 +199,26 @@ class Player {
 
     private static int[][] findMatrice(char[][] map, int positionX, int positionY, int value, int diminution, int propagation) {
         int[][] matrice = new int[width][height];
-        propagate(matrice, map, 1, 0, positionX, positionY, value, diminution, propagation);
-        propagate(matrice, map, 0, -1, positionX, positionY, value, diminution, propagation);
-        propagate(matrice, map, -1, 0, positionX, positionY, value, diminution, propagation);
-        propagate(matrice, map, 0, 1, positionX, positionY, value, diminution, propagation);
+        propagateStopAtBoxes(matrice, map, 1, 0, positionX, positionY, value, diminution, propagation);
+        propagateStopAtBoxes(matrice, map, 0, -1, positionX, positionY, value, diminution, propagation);
+        propagateStopAtBoxes(matrice, map, -1, 0, positionX, positionY, value, diminution, propagation);
+        propagateStopAtBoxes(matrice, map, 0, 1, positionX, positionY, value, diminution, propagation);
         return matrice;
     }
 
-    private static void propagate(int[][] matrice, char[][] map, int directionX, int directionY, int positionX, int positionY, int value, int diminution, int propagation) {
+    private static void propagateStopAtBoxes(int[][] matrice, char[][] map, int directionX, int directionY, int positionX, int positionY, int value, int diminution, int propagation) {
         for (int step = 1; step <= propagation; step++) {
             int valueX = positionX + directionX * (step);
             int valueY = positionY + directionY * (step);
             if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height && map[valueX][valueY] == '.') {
                 int valueT = value - step * diminution;
                 matrice[valueX][valueY] = valueT;
+            } else {
+                break;
             }
         }
     }
 
-    private static int[][] eraseMatrice(int[][] matrice, int positionX, int positionY, int value, int propagation) {
-        erase(matrice, 1, 0, positionX, positionY, value, propagation);
-        erase(matrice, -1, 0, positionX, positionY, value, propagation);
-        erase(matrice, 0, 1, positionX, positionY, value, propagation);
-        erase(matrice, 0, -1, positionX, positionY, value, propagation);
-        return matrice;
-    }
-
-    private static void erase(int[][] matrice, int directionX, int directionY, int positionX, int positionY, int value, int propagation) {
-        for (int step = 1; step <= propagation; step++) {
-            int valueX = positionX + directionX * (step);
-            int valueY = positionY + directionY * (step);
-            if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height) {
-                matrice[valueX][valueY] = value;
-            }
-        }
-    }
 
     private static void addPointInDirection(List<Position> positions, int directionX, int directionY, int positionX, int positionY, int propagation) {
         for (int step = 1; step <= propagation; step++) {
@@ -240,8 +226,34 @@ class Player {
             int valueY = positionY + directionY * (step);
             if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height) {
                 positions.add(new Position(valueX, valueY));
+                if (map[valueX][valueY] != '.') {
+                    break;
+                }
             }
         }
+    }
+
+    private static Position goAvoidingPosition(Position toGo, Position myPosition, List<Position> toAvoid) {
+        Position vecteur = Position.vecteur(myPosition, toGo);
+        Position pathByY = new Position(myPosition.x, myPosition.y + vecteur.y / Math.abs(vecteur.y));
+        Position pathByX = new Position(myPosition.x + vecteur.x / Math.abs(vecteur.x), myPosition.y);
+
+        if (!toAvoid.contains(myPosition) &&
+                !toAvoid.contains(pathByX) &&
+                !toAvoid.contains(pathByY)) {
+            //its safe to make the computer auto compile path
+            return toGo;
+        } else {
+            if (!toAvoid.contains(pathByX) && map[pathByX.x][pathByX.y] != '.') {
+                return pathByX;
+            } else if (!toAvoid.contains(pathByY) && map[pathByY.x][pathByY.y] != '.') {
+                return pathByY;
+            } else if (!toAvoid.contains(myPosition)) {
+                return myPosition;
+            }
+            System.err.println("I'm screwed");
+        }
+        return toGo;
     }
 
     private static void printMatrice(int[][] mat) {
@@ -290,9 +302,9 @@ class Player {
         }
     }
 
-    private static List<Position> findExplodingAera(List<Bomb> bombs) {
+    private static List<Position> findExplodingAera(List<Bomb> bombs, int maxExplodeIn) {
         List<Position> explosion = new ArrayList<>();
-        bombs.forEach(
+        bombs.stream().filter(b -> b.countdown >= maxExplodeIn).forEach(
                 b -> {
                     explosion.add(b.pos);
                     addPointInDirection(explosion, 1, 0, b.pos.x, b.pos.y, b.range);
@@ -320,6 +332,10 @@ class Position {
     public Position(int x, int y) {
         this.x = x;
         this.y = y;
+    }
+
+    public static Position vecteur(Position from, Position to) {
+        return new Position(to.x - from.x, to.y - from.y);
     }
 
     @Override
