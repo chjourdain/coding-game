@@ -1,3 +1,5 @@
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -7,10 +9,10 @@ import java.util.Scanner;
  * according to the problem statement.
  **/
 
-//TODO list : ignore boxe that will explode
-// pick up item
-// do calculation thank to items
-// differenciate path for bomb and for movement
+//TODO list :
+// pick up item better
+// calculate global path and subdivise detour
+// calculate propagation stoped on box hiting
 
 class Player {
     static int width;
@@ -18,14 +20,19 @@ class Player {
     static int myId;
     //parameter
 
-    static final int BOXE_PROPAGATION = 2;
+    static BomberMan[] bombermans = new BomberMan[4];
+
+    static final int BOXE_PROPAGATION_STANDARD = 2;
     static final int BOXE_VALUE = 40;
     static final int BOXE_DIMINUTION = 2;
     static final int PLAYER_PROPAGATION = 24;
     static final int PLAYER_VALUE = 24;
     static final int PLAYER_DIMINUTION = 1;
 
-    static final int MIN_BOMB = 70;
+    static final int BOMB_ITEM_NOMINAL = 80;
+    static final int RANGE_ITEM_NOMINAL = 40;
+
+    static final int MIN_BOMB = 100;
 
     static int current_max;
 
@@ -38,13 +45,15 @@ class Player {
 
         // game loop
         while (true) {
+            Instant start = Instant.now();
             // loop var
             List<Position> boxes = new ArrayList<>();
             char[][] map = new char[width][height];
             //  Position me = null;
             //  Position myBomb = null;
-            BomberMan[] bombermans = new BomberMan[4];
             List<Bomb> bombs = new ArrayList<>();
+            List<Position> bombItems = new ArrayList<>();
+            List<Position> rangeUpItems = new ArrayList<>();
 
 
             // collecting data
@@ -75,27 +84,36 @@ class Player {
                         bombs.add(new Bomb(x, y, param1, param2));
                         break;
                     case 2:
+                        if (param1 == 1) {
+                            rangeUpItems.add(new Position(x, y));
+                        } else {
+                            bombItems.add(new Position(x, y));
+                        }
                         break;
                 }
             }
 
+            System.err.println("ME :" + bombermans[myId]);
+
+
             List<Position> willExploseAera = findExplodingAera(bombs);
+            int boxePorpagation = bombermans[myId].range - 1;
 
             // Playing
 
             int[][] boxeValue = boxes.stream()//.peek(b -> System.err.println("box "+b))
                     .filter(b -> !willExploseAera.contains(b))
-                    .map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, BOXE_PROPAGATION))
+                    .map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, boxePorpagation))
                     //  .peek(x -> printMatrice(x))
                     .reduce(new int[width][height], Player::addMatrice);
             int[][] playerValue = findRoundMatrice(map, bombermans[myId].pos.x, bombermans[myId].pos.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
             playerValue[bombermans[myId].pos.x][bombermans[myId].pos.y] = PLAYER_VALUE;
             int[][] path = addMatrice(playerValue, boxeValue);
 
-            bombs.forEach(b -> {
-                eraseMatrice(path, b.pos.x, b.pos.y, 0, BOXE_PROPAGATION);
-                path[b.pos.x][b.pos.y] = 0;
-            });
+//            bombs.forEach(b -> {
+//                //eraseMatrice(path, b.pos.x, b.pos.y, 0, BOXE_PROPAGATION_STANDARD);
+//                path[b.pos.x][b.pos.y] = 0;
+//            });
 
             Position toGo = findMax(path);
 
@@ -103,11 +121,16 @@ class Player {
 
             if (bombermans[myId].bombs > 0 && (path[bombermans[myId].pos.x][bombermans[myId].pos.y] >= MIN_BOMB || path[bombermans[myId].pos.x][bombermans[myId].pos.y] > current_max - 2 * BOXE_DIMINUTION)) {
                 decision = "BOMB";
+            } else {
+                path = addBombItemValue(path, bombItems);
+                path = addRangeUpItemValue(path, rangeUpItems);
+                toGo = findMax(path);
             }
             System.err.println("go to " + toGo);
             System.err.println("current max is :" + current_max);
             printMatrice(path);
             System.out.println(decision + " " + toGo.x + " " + toGo.y);
+            System.err.println("calculation take :  " + Duration.between(start, Instant.now()));
         }
     }
 
@@ -123,6 +146,44 @@ class Player {
             }
         }
         return pos;
+    }
+
+    private static int[][] addBombItemValue(int[][] mat, List<Position> bombsItem) {
+        int value;
+        System.err.println("addind vlue of bomb size :  " + bombsItem.size());
+        switch (bombermans[myId].bombs) {
+            case 0 : value=BOMB_ITEM_NOMINAL;
+                break;
+            case 1 : value = BOMB_ITEM_NOMINAL / 2 ;
+                break;
+            default: value=0;
+        }
+        System.err.println("addind value :  " + value);
+
+        printMatrice(mat);
+        bombsItem.forEach(
+                b -> {
+                    System.err.println(" for bomb " +b );
+                    System.err.println("value was " + mat[b.x][b.y] );
+                    mat[b.x][b.y] = value + mat[b.x][b.y];
+                    System.err.println("value is now "  + mat[b.x][b.y] );
+                }
+        );
+        printMatrice(mat);
+        return mat;
+    }
+
+    private static int[][] addRangeUpItemValue(int[][] mat, List<Position> rangeUpItem) {
+        int value;
+        switch (bombermans[myId].range) {
+            case 3 : value=RANGE_ITEM_NOMINAL;
+                break;
+            default: value=RANGE_ITEM_NOMINAL / 2 ;
+        }
+        rangeUpItem.forEach(
+                b -> mat[b.x][b.y] += value
+        );
+        return mat;
     }
 
     private static int[][] addMatrice(int[][] mat1, int[][] mat2) {
@@ -291,16 +352,34 @@ class Bomb {
         this.range = param2;
         this.countdown = param1;
     }
+
+    @Override
+    public String toString() {
+        return "Bomb{" +
+                "pos=" + pos +
+                ", range=" + range +
+                ", countdown=" + countdown +
+                '}';
+    }
 }
 
 class BomberMan {
     Position pos;
     int bombs;
-    int rangeUp;
+    int range;
 
     public BomberMan(int x, int y, int param1, int param2) {
         this.pos = new Position(x, y);
         this.bombs = param1;
-        this.rangeUp = param2;
+        this.range = param2;
+    }
+
+    @Override
+    public String toString() {
+        return "BomberMan{" +
+                "pos=" + pos +
+                ", bombs=" + bombs +
+                ", range=" + range +
+                '}';
     }
 }
