@@ -8,8 +8,10 @@ import java.util.Scanner;
  **/
 
 //TODO list : ignore boxe that will explode
-    // pick up item
-    // do calculation thank to items
+// pick up item
+// do calculation thank to items
+// differenciate path for bomb and for movement
+
 class Player {
     static int width;
     static int height;
@@ -39,8 +41,8 @@ class Player {
             // loop var
             List<Position> boxes = new ArrayList<>();
             char[][] map = new char[width][height];
-          //  Position me = null;
-          //  Position myBomb = null;
+            //  Position me = null;
+            //  Position myBomb = null;
             BomberMan[] bombermans = new BomberMan[4];
             List<Bomb> bombs = new ArrayList<>();
 
@@ -66,27 +68,28 @@ class Player {
                 int param2 = in.nextInt();
 
                 switch (entityType) {
-                    case 0 :
-                    bombermans[owner] = new BomberMan(x, y ,param1, param2);
+                    case 0:
+                        bombermans[owner] = new BomberMan(x, y, param1, param2);
                         break;
                     case 1:
-                    bombs.add(new Bomb(x, y, param1,param2));
+                        bombs.add(new Bomb(x, y, param1, param2));
                         break;
-                    case 2 :
+                    case 2:
                         break;
                 }
             }
 
+            List<Position> willExploseAera = findExplodingAera(bombs);
+
             // Playing
 
             int[][] boxeValue = boxes.stream()//.peek(b -> System.err.println("box "+b))
+                    .filter(b -> !willExploseAera.contains(b))
                     .map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, BOXE_PROPAGATION))
-                  //  .peek(x -> printMatrice(x))
-                    .reduce(new int[width][height], (x, y) -> addMatrice(x, y));
+                    //  .peek(x -> printMatrice(x))
+                    .reduce(new int[width][height], Player::addMatrice);
             int[][] playerValue = findRoundMatrice(map, bombermans[myId].pos.x, bombermans[myId].pos.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
             playerValue[bombermans[myId].pos.x][bombermans[myId].pos.y] = PLAYER_VALUE;
-            System.err.println("my player");
-            printMatrice(playerValue);
             int[][] path = addMatrice(playerValue, boxeValue);
 
             bombs.forEach(b -> {
@@ -101,7 +104,7 @@ class Player {
             if (bombermans[myId].bombs > 0 && (path[bombermans[myId].pos.x][bombermans[myId].pos.y] >= MIN_BOMB || path[bombermans[myId].pos.x][bombermans[myId].pos.y] > current_max - 2 * BOXE_DIMINUTION)) {
                 decision = "BOMB";
             }
-             System.err.println("go to " +toGo);
+            System.err.println("go to " + toGo);
             System.err.println("current max is :" + current_max);
             printMatrice(path);
             System.out.println(decision + " " + toGo.x + " " + toGo.y);
@@ -170,6 +173,16 @@ class Player {
         }
     }
 
+    private static void addPointInDirection(List<Position> positions, int directionX, int directionY, int positionX, int positionY, int propagation) {
+        for (int step = 1; step <= propagation; step++) {
+            int valueX = positionX + directionX * (step);
+            int valueY = positionY + directionY * (step);
+            if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height) {
+                positions.add(new Position(valueX, valueY));
+            }
+        }
+    }
+
     private static void printMatrice(int[][] mat) {
         for (int y = 0; y < height; y++) {
             String row = "";
@@ -216,6 +229,19 @@ class Player {
         }
     }
 
+    private static List<Position> findExplodingAera(List<Bomb> bombs) {
+        List<Position> explosion = new ArrayList<>();
+        bombs.forEach(
+                b -> {
+                    explosion.add(b.pos);
+                    addPointInDirection(explosion, 1, 0, b.pos.x, b.pos.y, b.range);
+                    addPointInDirection(explosion, -1, 0, b.pos.x, b.pos.y, b.range);
+                    addPointInDirection(explosion, 0, 1, b.pos.x, b.pos.y, b.range);
+                    addPointInDirection(explosion, 0, -1, b.pos.x, b.pos.y, b.range);
+                }
+        );
+        return explosion;
+    }
 }
 
 class Position {
@@ -235,6 +261,24 @@ class Position {
         this.y = y;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Position position = (Position) o;
+
+        if (x != position.x) return false;
+        return y == position.y;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = x;
+        result = 31 * result + y;
+        return result;
+    }
 }
 
 class Bomb {
@@ -242,10 +286,10 @@ class Bomb {
     int range;
     int countdown;
 
-    public Bomb(int x, int y, int range, int countdown) {
-        this.pos = new Position(x,y);
-        this.range = range;
-        this.countdown = countdown;
+    public Bomb(int x, int y, int param1, int param2) {
+        this.pos = new Position(x, y);
+        this.range = param2;
+        this.countdown = param1;
     }
 }
 
@@ -255,7 +299,7 @@ class BomberMan {
     int rangeUp;
 
     public BomberMan(int x, int y, int param1, int param2) {
-        this.pos = new Position(x,y);
+        this.pos = new Position(x, y);
         this.bombs = param1;
         this.rangeUp = param2;
     }
