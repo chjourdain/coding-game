@@ -1,10 +1,11 @@
-import javafx.geometry.Pos;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Auto-generated code below aims at helping you parse the standard input
@@ -13,9 +14,8 @@ import java.util.Scanner;
 
 //TODO list :
 // pick up item better
+    // be safer placing a second bomb
 // calculate global path and subdivise detour
-// calculate propagation stoped on box hiting and wall
-// moveout of explosion
 // mveout of other player plans
 
 class Player {
@@ -28,7 +28,7 @@ class Player {
 
     static final int BOXE_PROPAGATION_STANDARD = 2;
     static final int BOXE_VALUE = 40;
-    static final int BOXE_DIMINUTION = 2;
+    static final int BOXE_DIMINUTION = 0;
     static final int PLAYER_PROPAGATION = 24;
     static final int PLAYER_VALUE = 24;
     static final int PLAYER_DIMINUTION = 1;
@@ -40,7 +40,7 @@ class Player {
 
     static int current_max;
     static char[][] map;
-
+   static List<Bomb> bombs;
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
@@ -56,7 +56,7 @@ class Player {
             map = new char[width][height];
             //  Position me = null;
             //  Position myBomb = null;
-            List<Bomb> bombs = new ArrayList<>();
+            bombs = new ArrayList<>();
             List<Position> bombItems = new ArrayList<>();
             List<Position> rangeUpItems = new ArrayList<>();
 
@@ -67,7 +67,7 @@ class Player {
                 char[] line = row.toCharArray();
                 for (int x = 0; x < line.length; x++) {
                     map[x][i] = line[x];
-                    if ('.' != line[x] && 'x' != line[x]) {
+                    if ('.' != line[x] && 'X' != line[x]) {
                         boxes.add(new Position(x, i));
                     }
                 }
@@ -108,15 +108,17 @@ class Player {
 
             // Playing
 
-            int[][] boxeValue = boxes.stream()//.peek(b -> System.err.println("box "+b))
+            int[][] boxeValue = boxes.stream()
                     .filter(b -> !willExploseAera.contains(b))
                     .map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, boxePorpagation))
-                    //  .peek(x -> printMatrice(x))
                     .reduce(new int[width][height], Player::addMatrice);
-            int[][] playerValue = findRoundMatrice(map, bombermans[myId].pos.x, bombermans[myId].pos.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
-            playerValue[bombermans[myId].pos.x][bombermans[myId].pos.y] = PLAYER_VALUE;
+            int[][] playerValue = /*(map, bombermans[myId].pos.x, bombermans[myId].pos.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
+            playerValue[bombermans[myId].pos.x][bombermans[myId].pos.y] = PLAYER_VALUE;*/
+            pathExploring(height + width, PLAYER_VALUE, PLAYER_DIMINUTION,bombermans[myId].pos);
             int[][] path = addMatrice(playerValue, boxeValue);
-
+            for (Position explose :willExploseAera){
+                path[explose.x][explose.y] = -1000;
+            }
             Position toGo = findMax(path);
 
             String decision = "MOVE";
@@ -130,14 +132,17 @@ class Player {
             }
             System.err.println("go to " + toGo);
             System.err.println("current max is :" + current_max);
+
             printMatrice(path);
+
+            toGo = goAvoidingPosition(toGo, bombermans[myId].pos, willExploseAeraIn1Or2);
             System.out.println(decision + " " + toGo.x + " " + toGo.y);
             System.err.println("calculation take :  " + Duration.between(start, Instant.now()));
         }
     }
 
     private static Position findMax(int[][] mat) {
-        current_max = 0;
+        current_max = -100000;
         Position pos = null;
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
@@ -162,13 +167,11 @@ class Player {
             default:
                 value = 0;
         }
-        printMatrice(mat);
         bombsItem.forEach(
                 b -> {
                     mat[b.x][b.y] = value + mat[b.x][b.y];
                 }
         );
-        printMatrice(mat);
         return mat;
     }
 
@@ -235,20 +238,24 @@ class Player {
 
     private static Position goAvoidingPosition(Position toGo, Position myPosition, List<Position> toAvoid) {
         Position vecteur = Position.vecteur(myPosition, toGo);
-        Position pathByY = new Position(myPosition.x, myPosition.y + vecteur.y / Math.abs(vecteur.y));
-        Position pathByX = new Position(myPosition.x + vecteur.x / Math.abs(vecteur.x), myPosition.y);
+        Position pathByY = (vecteur.y == 0) ? toGo : new Position(myPosition.x, myPosition.y + vecteur.y / Math.abs(vecteur.y));
+        Position pathByX = (vecteur.x == 0) ? toGo : new Position(myPosition.x + vecteur.x / Math.abs(vecteur.x), myPosition.y);
 
         if (!toAvoid.contains(myPosition) &&
                 !toAvoid.contains(pathByX) &&
                 !toAvoid.contains(pathByY)) {
             //its safe to make the computer auto compile path
+            System.err.println("safe going");
             return toGo;
         } else {
-            if (!toAvoid.contains(pathByX) && map[pathByX.x][pathByX.y] != '.') {
+            if (!toAvoid.contains(pathByX) && map[pathByX.x][pathByX.y] == '.') {
+                System.err.println("going by X");
                 return pathByX;
-            } else if (!toAvoid.contains(pathByY) && map[pathByY.x][pathByY.y] != '.') {
+            } else if (!toAvoid.contains(pathByY) && map[pathByY.x][pathByY.y] == '.') {
+                System.err.println("going by Y");
                 return pathByY;
             } else if (!toAvoid.contains(myPosition)) {
+                System.err.println("Stoping everything");
                 return myPosition;
             }
             System.err.println("I'm screwed");
@@ -277,6 +284,7 @@ class Player {
     }
 
     private static void propagateRoundX(int[][] matrice, char[][] map, int directionX, int directionY, int positionX, int positionY, int value, int diminution, int propagation) {
+        upperloop:
         for (int step = 1; step <= propagation; step++) {
             for (int stepY = 0; stepY < step; stepY++) {
                 int valueX = positionX + directionX * (step - stepY);
@@ -284,6 +292,8 @@ class Player {
                 if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height && map[valueX][valueY] == '.') {
                     int valueT = value - step * diminution;
                     matrice[valueX][valueY] = valueT;
+                } else {
+                    return;
                 }
             }
         }
@@ -304,7 +314,7 @@ class Player {
 
     private static List<Position> findExplodingAera(List<Bomb> bombs, int maxExplodeIn) {
         List<Position> explosion = new ArrayList<>();
-        bombs.stream().filter(b -> b.countdown >= maxExplodeIn).forEach(
+        bombs.stream().filter(b -> b.countdown <= maxExplodeIn).forEach(
                 b -> {
                     explosion.add(b.pos);
                     addPointInDirection(explosion, 1, 0, b.pos.x, b.pos.y, b.range);
@@ -314,6 +324,70 @@ class Player {
                 }
         );
         return explosion;
+    }
+
+
+    private static int[][] pathExploring(int deep, int value, int decrease, Position start) {
+        int[][] matrice = new int[width][height];
+        for (int[] row: matrice)
+            Arrays.fill(row, -1000);
+        List<List<Move>> calculation = new ArrayList<>();
+        Move initialMove = new Move(start, value, new ArrayList<>());
+        calculation.add(Arrays.asList(initialMove));
+        for (int step = 0; step < deep; step++) {
+            List<Move> stepMove = new ArrayList<>();
+            if(calculation.get(step).isEmpty()) {break;}
+            calculation.get(step).forEach(
+                    m -> stepMove.addAll(goAround(m, m.value, decrease))
+            );
+            calculation.add(stepMove);
+        }
+
+        for(List<Move> moves : calculation) {
+            for(Move move : moves) {
+                if(matrice[move.now.x][move.now.y] < move.value) {
+                    matrice[move.now.x][move.now.y] = move.value;
+                }
+            }
+        }
+        return matrice;
+    }
+
+    private static List<Move> goAround(Move start, int value, int decrease) {
+        Position up = new Position(start.now.x, start.now.y + 1);
+        Position right = new Position(start.now.x + 1, start.now.y);
+        Position down = new Position(start.now.x, start.now.y - 1);
+        Position left = new Position(start.now.x - 1, start.now.y);
+        return Stream.of(up, down, right, left)
+                .filter(pos -> pos.x >= 0 && pos.x < width
+                        && pos.y >= 0 && pos.y < height
+                        && map[pos.x][pos.y] == '.'
+                        && !start.previousPositions.contains(pos) && !bombs.stream().map(b -> b.pos).collect(Collectors.toList()).contains(pos))
+                .map(pos -> new Move(pos, value - decrease, start.previousPositions))
+                .collect(Collectors.toList());
+
+    }
+}
+
+class Move {
+    Position now;
+    List<Position> previousPositions;
+    int value;
+
+    public Move(Position now, int value, List<Position> previousPositions) {
+        this.now = now;
+        this.value = value;
+        this.previousPositions = new ArrayList<>(previousPositions);
+        this.previousPositions.add(now);
+    }
+
+    @Override
+    public String toString() {
+        return "Move{" +
+                "now=" + now +
+                ", from=" + previousPositions +
+                ", value=" + value +
+                '}';
     }
 }
 
