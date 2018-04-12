@@ -12,9 +12,11 @@ import java.util.stream.Stream;
 //TODO list :
 // mveout of other player plans
 // be safer on movement
-// item block explosion
+// add position to a treeset not to calculate several trajectoire
 // reduce negative effect of bomb in fonction of there futur explosion, in case of moving do not avoid bomb that will explose not really
- //soon
+
+    //narow the map of calculation for path discovery do go deeply on prevition
+//soon
 class Player {
     static int width;
     static int height;
@@ -41,6 +43,9 @@ class Player {
     static char[][] map;
     static List<Bomb> bombs;
 
+    static List<Position> bombItems;
+    static List<Position> rangeUpItems;
+
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
         width = in.nextInt();
@@ -56,8 +61,8 @@ class Player {
             //  Position me = null;
             //  Position myBomb = null;
             bombs = new ArrayList<>();
-            List<Position> bombItems = new ArrayList<>();
-            List<Position> rangeUpItems = new ArrayList<>();
+            bombItems = new ArrayList<>();
+            rangeUpItems = new ArrayList<>();
 
 
             // collecting data
@@ -283,7 +288,9 @@ class Player {
         for (int step = 1; step <= propagation; step++) {
             int valueX = positionX + directionX * (step);
             int valueY = positionY + directionY * (step);
-            if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height && map[valueX][valueY] == '.') {
+            Position xy = new Position(valueX, valueY);
+            if (valueX >= 0 && valueX < width && valueY >= 0 && valueY < height && map[valueX][valueY] == '.'
+                    && !bombItems.contains(xy) && !rangeUpItems.contains(xy)) {
                 int valueT = value - step * diminution;
                 matrice[valueX][valueY] = valueT;
             } else {
