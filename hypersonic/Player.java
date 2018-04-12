@@ -12,11 +12,9 @@ import java.util.stream.Stream;
 //TODO list :
 // mveout of other player plans
 // be safer on movement
-// add position to a treeset not to calculate several trajectoire
 // reduce negative effect of bomb in fonction of there futur explosion, in case of moving do not avoid bomb that will explose not really
-
+//get item that block box to explose
     //narow the map of calculation for path discovery do go deeply on prevition
-//soon
 class Player {
     static int width;
     static int height;
@@ -116,9 +114,7 @@ class Player {
                     .filter(b -> !willExploseAera.contains(b))
                     .map(p -> findMatrice(map, p.x, p.y, BOXE_VALUE, BOXE_DIMINUTION, boxePorpagation))
                     .reduce(new int[width][height], Player::addMatrice);
-            int[][] playerValue = /*(map, bombermans[myId].pos.x, bombermans[myId].pos.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
-            playerValue[bombermans[myId].pos.x][bombermans[myId].pos.y] = PLAYER_VALUE;*/
-                    pathExploring(height + width, PLAYER_VALUE, PLAYER_DIMINUTION, bombermans[myId].pos);
+            int[][] playerValue = pathExploring(height + width, PLAYER_VALUE, PLAYER_DIMINUTION, bombermans[myId].pos);
             int[][] path = addMatrice(playerValue, boxeValue);
             for (Position explose : willExploseAera) {
                 path[explose.x][explose.y] = -1000;
@@ -410,6 +406,7 @@ class Player {
         for (int[] row : matrice)
             Arrays.fill(row, -1000);
         List<List<Move>> calculation = new ArrayList<>();
+        Set<Position> positionsExplored = new HashSet<>();
         Move initialMove = new Move(start, value, new ArrayList<>());
         calculation.add(Arrays.asList(initialMove));
         for (int step = 0; step < deep; step++) {
@@ -418,7 +415,7 @@ class Player {
                 break;
             }
             calculation.get(step).forEach(
-                    m -> stepMove.addAll(goAround(m, m.value, decrease))
+                    m -> stepMove.addAll(goAround(m, m.value, decrease, positionsExplored))
             );
             calculation.add(stepMove);
         }
@@ -433,7 +430,7 @@ class Player {
         return matrice;
     }
 
-    private static List<Move> goAround(Move start, int value, int decrease) {
+    private static List<Move> goAround(Move start, int value, int decrease, Set<Position> alreadyDone) {
         Position up = new Position(start.now.x, start.now.y + 1);
         Position right = new Position(start.now.x + 1, start.now.y);
         Position down = new Position(start.now.x, start.now.y - 1);
@@ -442,7 +439,7 @@ class Player {
                 .filter(pos -> pos.x >= 0 && pos.x < width
                         && pos.y >= 0 && pos.y < height
                         && map[pos.x][pos.y] == '.'
-                        && !start.previousPositions.contains(pos) && !bombs.stream().map(b -> b.pos).collect(Collectors.toList()).contains(pos))
+                        && !start.previousPositions.contains(pos) && !bombs.stream().map(b -> b.pos).collect(Collectors.toList()).contains(pos) && alreadyDone.add(pos))
                 .map(pos -> new Move(pos, value - decrease, start.previousPositions))
                 .collect(Collectors.toList());
 
