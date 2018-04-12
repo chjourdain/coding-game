@@ -1,9 +1,6 @@
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -13,12 +10,11 @@ import java.util.stream.Stream;
  **/
 
 //TODO list :
-// be safer placing a second bomb
 // mveout of other player plans
-
+// be safer on movement
 // item block explosion
-// reduce negative effect of bomb in fonction of there futur explosion
-
+// reduce negative effect of bomb in fonction of there futur explosion, in case of moving do not avoid bomb that will explose not really
+ //soon
 class Player {
     static int width;
     static int height;
@@ -26,6 +22,8 @@ class Player {
     //parameter
 
     static BomberMan[] bombermans = new BomberMan[4];
+
+    static final AvoidingPosition avoidingPosition = new AvoidingPosition();
 
     static final int BOXE_PROPAGATION_STANDARD = 2;
     static final int BOXE_VALUE = 40;
@@ -120,18 +118,44 @@ class Player {
             for (Position explose : willExploseAera) {
                 path[explose.x][explose.y] = -1000;
             }
-            Position toGo = findMax(path);
+            avoidingPosition.processAvoiding(path);
+            Position toGo;
 
             String decision = "MOVE";
 
             if (bombermans[myId].bombs > 0 && (path[bombermans[myId].pos.x][bombermans[myId].pos.y] >= MIN_BOMB || path[bombermans[myId].pos.x][bombermans[myId].pos.y] == current_max)) {
                 decision = "BOMB";
-                for (Position x : findExplodingAera(Arrays.asList(new Bomb(bombermans[myId].pos.x, bombermans[myId].pos.y, 8, bombermans[myId].range)), 10)) {
+                Bomb newBomb = new Bomb(bombermans[myId].pos.x, bombermans[myId].pos.y, 8, bombermans[myId].range);
+                for (Position x : findExplodingAera(Arrays.asList(newBomb), 10)) {
                     path[x.x][x.y] = -1000;
                 }
                 path = addValueAround(path, bombermans[myId].pos, 200);
-
                 toGo = findMax(path);
+                System.err.println("wanna bomb, but is it safe ?");
+                if (current_max < 0) {
+                    System.err.println("FUCKING NOT SAFE");
+                    decision = "MOVE";
+                    avoidingPosition.add(bombermans[myId].pos.x, bombermans[myId].pos.y, 5);
+                } else {
+                    bombs.add(newBomb);
+                    int[][] nextPlayerValue =
+                            pathExploring(4, PLAYER_VALUE, PLAYER_DIMINUTION, guessingNextPosition(bombermans[myId].pos, toGo));
+
+                    for (Position explose : findExplodingAera(bombs, 10)) {
+                        path[explose.x][explose.y] = -1000;
+                    }
+
+                    System.err.println("guessing my next mat will be :");
+
+                    printMatrice(nextPlayerValue);
+                    findMax(nextPlayerValue);
+                    if (current_max < 10) {
+                        System.err.println("NOT SAFE");
+                        decision = "MOVE";
+                        avoidingPosition.add(bombermans[myId].pos.x, bombermans[myId].pos.y, 5);
+                    }
+                }
+
             } else {
                 path = addBombItemValue(path, bombItems);
                 path = addRangeUpItemValue(path, rangeUpItems);
@@ -144,8 +168,13 @@ class Player {
 
             toGo = goAvoidingPosition(toGo, bombermans[myId].pos, willExploseAeraIn1Or2);
             System.out.println(decision + " " + toGo.x + " " + toGo.y);
-            System.err.println("calculation take :  " + Duration.between(start, Instant.now()));
+            System.err.println("calculation took :  " + Duration.between(start, Instant.now()));
+            avoidingPosition.reduceCount();
         }
+    }
+
+    private static Position guessingNextPosition(Position mine, Position toGO) {
+        return goAvoidingPosition(toGO, mine, Collections.emptyList());
     }
 
     private static Position findMax(int[][] mat) {
@@ -167,7 +196,7 @@ class Player {
         int upperBound = position.y - 1;
         int lowerBound = position.y + 1;
         int leftBound = position.x - 1;
-        int rightBond = position.x + 1;
+        int rightBound = position.x + 1;
 
         if (upperBound >= 0) {
             for (int x = 0; x < width; x++) {
@@ -183,13 +212,13 @@ class Player {
 
         if (leftBound >= 0) {
             for (int y = 0; y < height; y++) {
-                mat[leftBound][upperBound] += value;
+                mat[leftBound][y] += value;
             }
         }
 
-        if (leftBound < width) {
+        if (rightBound < width) {
             for (int y = 0; y < height; y++) {
-                mat[leftBound][upperBound] += value;
+                mat[rightBound][y] += value;
             }
         }
 
@@ -369,6 +398,7 @@ class Player {
 
 
     private static int[][] pathExploring(int deep, int value, int decrease, Position start) {
+        System.err.println("I'm am at " + start);
         int[][] matrice = new int[width][height];
         for (int[] row : matrice)
             Arrays.fill(row, -1000);
@@ -514,5 +544,35 @@ class BomberMan {
                 ", bombs=" + bombs +
                 ", range=" + range +
                 '}';
+    }
+}
+
+class AvoidingPosition {
+    List<PositonCount> list = new ArrayList<>();
+
+    void add(int x, int y, int count) {
+        list.add(new PositonCount(new Position(x, y), count));
+    }
+
+    void processAvoiding(int[][] mat) {
+        list.forEach(posC -> mat[posC.pos.x][posC.pos.y] += -1000);
+    }
+
+    void reduceCount() {
+        list = list.stream().map(x -> {
+            x.count--;
+            return x;
+        }).filter(x -> x.count > 0).collect(Collectors.toList());
+    }
+
+}
+
+class PositonCount {
+    Position pos;
+    int count;
+
+    public PositonCount(Position pos, int count) {
+        this.pos = pos;
+        this.count = count;
     }
 }
