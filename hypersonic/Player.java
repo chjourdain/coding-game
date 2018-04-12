@@ -13,10 +13,11 @@ import java.util.stream.Stream;
  **/
 
 //TODO list :
-// pick up item better
-    // be safer placing a second bomb
-// calculate global path and subdivise detour
+// be safer placing a second bomb
 // mveout of other player plans
+
+// item block explosion
+// reduce negative effect of bomb in fonction of there futur explosion
 
 class Player {
     static int width;
@@ -40,7 +41,7 @@ class Player {
 
     static int current_max;
     static char[][] map;
-   static List<Bomb> bombs;
+    static List<Bomb> bombs;
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
@@ -114,17 +115,23 @@ class Player {
                     .reduce(new int[width][height], Player::addMatrice);
             int[][] playerValue = /*(map, bombermans[myId].pos.x, bombermans[myId].pos.y, PLAYER_VALUE, PLAYER_DIMINUTION, PLAYER_PROPAGATION);
             playerValue[bombermans[myId].pos.x][bombermans[myId].pos.y] = PLAYER_VALUE;*/
-            pathExploring(height + width, PLAYER_VALUE, PLAYER_DIMINUTION,bombermans[myId].pos);
+                    pathExploring(height + width, PLAYER_VALUE, PLAYER_DIMINUTION, bombermans[myId].pos);
             int[][] path = addMatrice(playerValue, boxeValue);
-            for (Position explose :willExploseAera){
+            for (Position explose : willExploseAera) {
                 path[explose.x][explose.y] = -1000;
             }
             Position toGo = findMax(path);
 
             String decision = "MOVE";
 
-            if (bombermans[myId].bombs > 0 && (path[bombermans[myId].pos.x][bombermans[myId].pos.y] >= MIN_BOMB || path[bombermans[myId].pos.x][bombermans[myId].pos.y] > current_max - 2 * BOXE_DIMINUTION)) {
+            if (bombermans[myId].bombs > 0 && (path[bombermans[myId].pos.x][bombermans[myId].pos.y] >= MIN_BOMB || path[bombermans[myId].pos.x][bombermans[myId].pos.y] == current_max)) {
                 decision = "BOMB";
+                for (Position x : findExplodingAera(Arrays.asList(new Bomb(bombermans[myId].pos.x, bombermans[myId].pos.y, 8, bombermans[myId].range)), 10)) {
+                    path[x.x][x.y] = -1000;
+                }
+                path = addValueAround(path, bombermans[myId].pos, 200);
+
+                toGo = findMax(path);
             } else {
                 path = addBombItemValue(path, bombItems);
                 path = addRangeUpItemValue(path, rangeUpItems);
@@ -153,6 +160,40 @@ class Player {
             }
         }
         return pos;
+    }
+
+
+    private static int[][] addValueAround(int[][] mat, Position position, int value) {
+        int upperBound = position.y - 1;
+        int lowerBound = position.y + 1;
+        int leftBound = position.x - 1;
+        int rightBond = position.x + 1;
+
+        if (upperBound >= 0) {
+            for (int x = 0; x < width; x++) {
+                mat[x][upperBound] += value;
+            }
+        }
+
+        if (lowerBound < height) {
+            for (int x = 0; x < width; x++) {
+                mat[x][lowerBound] += value;
+            }
+        }
+
+        if (leftBound >= 0) {
+            for (int y = 0; y < height; y++) {
+                mat[leftBound][upperBound] += value;
+            }
+        }
+
+        if (leftBound < width) {
+            for (int y = 0; y < height; y++) {
+                mat[leftBound][upperBound] += value;
+            }
+        }
+
+        return mat;
     }
 
     private static int[][] addBombItemValue(int[][] mat, List<Position> bombsItem) {
@@ -329,23 +370,25 @@ class Player {
 
     private static int[][] pathExploring(int deep, int value, int decrease, Position start) {
         int[][] matrice = new int[width][height];
-        for (int[] row: matrice)
+        for (int[] row : matrice)
             Arrays.fill(row, -1000);
         List<List<Move>> calculation = new ArrayList<>();
         Move initialMove = new Move(start, value, new ArrayList<>());
         calculation.add(Arrays.asList(initialMove));
         for (int step = 0; step < deep; step++) {
             List<Move> stepMove = new ArrayList<>();
-            if(calculation.get(step).isEmpty()) {break;}
+            if (calculation.get(step).isEmpty()) {
+                break;
+            }
             calculation.get(step).forEach(
                     m -> stepMove.addAll(goAround(m, m.value, decrease))
             );
             calculation.add(stepMove);
         }
 
-        for(List<Move> moves : calculation) {
-            for(Move move : moves) {
-                if(matrice[move.now.x][move.now.y] < move.value) {
+        for (List<Move> moves : calculation) {
+            for (Move move : moves) {
+                if (matrice[move.now.x][move.now.y] < move.value) {
                     matrice[move.now.x][move.now.y] = move.value;
                 }
             }
