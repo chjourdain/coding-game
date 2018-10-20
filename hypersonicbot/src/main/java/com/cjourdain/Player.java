@@ -1,3 +1,6 @@
+package com.cjourdain.hypersonic;
+
+import java.io.PrintStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -15,7 +18,7 @@ import java.util.stream.Stream;
 // reduce negative effect of bomb in fonction of there futur explosion, in case of moving do not avoid bomb that will explose not really
 //get item that block box to explose
     //narow the map of calculation for path discovery do go deeply on prevition
-class Player {
+public class Player {
     static int width;
     static int height;
     static int myId;
@@ -41,17 +44,26 @@ class Player {
     static char[][] map;
     static List<Bomb> bombs;
 
-    static List<Position> bombItems;
-    static List<Position> rangeUpItems;
+   public static List<Position> bombItems;
+   public static List<Position> rangeUpItems;
+   public static Scanner in = new Scanner(System.in);
+   public static PrintStream printer = System.out;
 
     public static void main(String args[]) {
-        Scanner in = new Scanner(System.in);
-        width = in.nextInt();
-        height = in.nextInt();
-        myId = in.nextInt();
+        String arg1 = "";
+        boolean logging = true;
 
+        width = in.nextInt();
+        if(logging) arg1 += width +" ";
+        height = in.nextInt();
+        if(logging) arg1 += height +" ";
+        myId = in.nextInt();
+        if(logging) arg1 += myId +" ";
+
+        if(logging) System.err.println("arg1 = " + arg1);
         // game loop
         while (true) {
+            String arg2= "";
             Instant start = Instant.now();
             // loop var
             List<Position> boxes = new ArrayList<>();
@@ -66,6 +78,8 @@ class Player {
             // collecting data
             for (int i = 0; i < height; i++) {
                 String row = in.next(); // . floor 0 box
+                if(logging) arg2 += row +" ";
+
                 char[] line = row.toCharArray();
                 for (int x = 0; x < line.length; x++) {
                     map[x][i] = line[x];
@@ -75,6 +89,8 @@ class Player {
                 }
             }
             int entities = in.nextInt();
+            if(logging) arg2 += entities +" ";
+
             for (int i = 0; i < entities; i++) {
                 int entityType = in.nextInt(); // player 0 bomb 1
                 int owner = in.nextInt(); // 0 me other 1
@@ -82,6 +98,12 @@ class Player {
                 int y = in.nextInt();
                 int param1 = in.nextInt();
                 int param2 = in.nextInt();
+                if(logging) arg2 += entityType +" ";
+                if(logging) arg2 += owner +" ";
+                if(logging) arg2 += x +" ";
+                if(logging) arg2 += y +" ";
+                if(logging) arg2 += param1 +" ";
+                if(logging) arg2 += param2 +" ";
 
                 switch (entityType) {
                     case 0:
@@ -99,6 +121,8 @@ class Player {
                         break;
                 }
             }
+            System.err.println("String arg2 = \"" + arg2 + "\";");
+
 
             System.err.println("ME :" + bombermans[myId]);
 
@@ -168,7 +192,7 @@ class Player {
             printMatrice(path);
 
             toGo = goAvoidingPosition(toGo, bombermans[myId].pos, willExploseAeraIn1Or2);
-            System.out.println(decision + " " + toGo.x + " " + toGo.y);
+            printer.println(decision + " " + toGo.x + " " + toGo.y);
             System.err.println("calculation took :  " + Duration.between(start, Instant.now()));
             avoidingPosition.reduceCount();
         }
@@ -444,139 +468,141 @@ class Player {
                 .collect(Collectors.toList());
 
     }
+
+    static class Position {
+        int x;
+        int y;
+
+        @Override
+        public String toString() {
+            return "Pos{" +
+                    "x=" + x +
+                    ", y=" + y +
+                    '}';
+        }
+
+        public Position(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public static Position vecteur(Position from, Position to) {
+            return new Position(to.x - from.x, to.y - from.y);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            Position position = (Position) o;
+
+            if (x != position.x) return false;
+            return y == position.y;
+
+        }
+
+        @Override
+        public int hashCode() {
+            int result = x;
+            result = 31 * result + y;
+            return result;
+        }
+    }
+
+    static class Bomb {
+        Position pos;
+        int range;
+        int countdown;
+
+        public Bomb(int x, int y, int param1, int param2) {
+            this.pos = new Position(x, y);
+            this.range = param2;
+            this.countdown = param1;
+        }
+
+        @Override
+        public String toString() {
+            return "Bomb{" +
+                    "pos=" + pos +
+                    ", range=" + range +
+                    ", countdown=" + countdown +
+                    '}';
+        }
+    }
+
+    static class BomberMan {
+        Position pos;
+        int bombs;
+        int range;
+
+        public BomberMan(int x, int y, int param1, int param2) {
+            this.pos = new Position(x, y);
+            this.bombs = param1;
+            this.range = param2;
+        }
+
+        @Override
+        public String toString() {
+            return "BomberMan{" +
+                    "pos=" + pos +
+                    ", bombs=" + bombs +
+                    ", range=" + range +
+                    '}';
+        }
+    }
+
+    static class AvoidingPosition {
+        List<PositonCount> list = new ArrayList<>();
+
+        void add(int x, int y, int count) {
+            list.add(new PositonCount(new Position(x, y), count));
+        }
+
+        void processAvoiding(int[][] mat) {
+            list.forEach(posC -> mat[posC.pos.x][posC.pos.y] += -1000);
+        }
+
+        void reduceCount() {
+            list = list.stream().map(x -> {
+                x.count--;
+                return x;
+            }).filter(x -> x.count > 0).collect(Collectors.toList());
+        }
+
+    }
+
+    static class PositonCount {
+        Position pos;
+        int count;
+
+        public PositonCount(Position pos, int count) {
+            this.pos = pos;
+            this.count = count;
+        }
+    }
+    static class Move {
+        Position now;
+        List<Position> previousPositions;
+        int value;
+
+        public Move(Position now, int value, List<Position> previousPositions) {
+            this.now = now;
+            this.value = value;
+            this.previousPositions = new ArrayList<>(previousPositions);
+            this.previousPositions.add(now);
+        }
+
+        @Override
+        public String toString() {
+            return "Move{" +
+                    "now=" + now +
+                    ", from=" + previousPositions +
+                    ", value=" + value +
+                    '}';
+        }
 }
 
-class Move {
-    Position now;
-    List<Position> previousPositions;
-    int value;
-
-    public Move(Position now, int value, List<Position> previousPositions) {
-        this.now = now;
-        this.value = value;
-        this.previousPositions = new ArrayList<>(previousPositions);
-        this.previousPositions.add(now);
-    }
-
-    @Override
-    public String toString() {
-        return "Move{" +
-                "now=" + now +
-                ", from=" + previousPositions +
-                ", value=" + value +
-                '}';
-    }
-}
-
-class Position {
-    int x;
-    int y;
-
-    @Override
-    public String toString() {
-        return "Pos{" +
-                "x=" + x +
-                ", y=" + y +
-                '}';
-    }
-
-    public Position(int x, int y) {
-        this.x = x;
-        this.y = y;
-    }
-
-    public static Position vecteur(Position from, Position to) {
-        return new Position(to.x - from.x, to.y - from.y);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        Position position = (Position) o;
-
-        if (x != position.x) return false;
-        return y == position.y;
-
-    }
-
-    @Override
-    public int hashCode() {
-        int result = x;
-        result = 31 * result + y;
-        return result;
-    }
-}
-
-class Bomb {
-    Position pos;
-    int range;
-    int countdown;
-
-    public Bomb(int x, int y, int param1, int param2) {
-        this.pos = new Position(x, y);
-        this.range = param2;
-        this.countdown = param1;
-    }
-
-    @Override
-    public String toString() {
-        return "Bomb{" +
-                "pos=" + pos +
-                ", range=" + range +
-                ", countdown=" + countdown +
-                '}';
-    }
-}
-
-class BomberMan {
-    Position pos;
-    int bombs;
-    int range;
-
-    public BomberMan(int x, int y, int param1, int param2) {
-        this.pos = new Position(x, y);
-        this.bombs = param1;
-        this.range = param2;
-    }
-
-    @Override
-    public String toString() {
-        return "BomberMan{" +
-                "pos=" + pos +
-                ", bombs=" + bombs +
-                ", range=" + range +
-                '}';
-    }
-}
-
-class AvoidingPosition {
-    List<PositonCount> list = new ArrayList<>();
-
-    void add(int x, int y, int count) {
-        list.add(new PositonCount(new Position(x, y), count));
-    }
-
-    void processAvoiding(int[][] mat) {
-        list.forEach(posC -> mat[posC.pos.x][posC.pos.y] += -1000);
-    }
-
-    void reduceCount() {
-        list = list.stream().map(x -> {
-            x.count--;
-            return x;
-        }).filter(x -> x.count > 0).collect(Collectors.toList());
-    }
 
 }
 
-class PositonCount {
-    Position pos;
-    int count;
-
-    public PositonCount(Position pos, int count) {
-        this.pos = pos;
-        this.count = count;
-    }
-}

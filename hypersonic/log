@@ -1,6 +1,0 @@
-ME :BomberMan{pos=Pos{x=0, y=0}, bombs=1, range=3}
-Exception in thread "main" java.lang.ArrayIndexOutOfBoundsException: -1
-at Player.addValueAround on line 208
-at Player.main on line 133
-Game information:
-Timeout: the program d
