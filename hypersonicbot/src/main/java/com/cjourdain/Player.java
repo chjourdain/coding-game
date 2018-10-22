@@ -1,4 +1,4 @@
-package com.cjourdain.hypersonic;
+package com.cjourdain;
 
 import java.io.PrintStream;
 import java.time.Duration;
@@ -26,7 +26,7 @@ public class Player {
 
     static BomberMan[] bombermans = new BomberMan[4];
 
-    static final AvoidingPosition avoidingPosition = new AvoidingPosition();
+    static AvoidingPosition avoidingPosition = new AvoidingPosition();
 
     static final int BOXE_PROPAGATION_STANDARD = 2;
     static final int BOXE_VALUE = 40;
@@ -49,7 +49,9 @@ public class Player {
    public static Scanner in = new Scanner(System.in);
    public static PrintStream printer = System.out;
 
-    public static void main(String args[]) {
+
+
+    public  static  void  main(String args[]) {
         String arg1 = "";
         boolean logging = true;
 
@@ -121,10 +123,10 @@ public class Player {
                         break;
                 }
             }
-            System.err.println("String arg2 = \"" + arg2 + "\";");
+            if(logging) System.err.println("String arg2 = \"" + arg2 + "\";");
 
 
-            System.err.println("ME :" + bombermans[myId]);
+            if(logging)    System.err.println("ME :" + bombermans[myId]);
 
 
             List<Position> willExploseAera = findExplodingAera(bombs, 9);
@@ -147,7 +149,7 @@ public class Player {
             Position toGo;
 
             String decision = "MOVE";
-
+            int[][] pathCopy =deepCopyIntMatrix(path);
             if (bombermans[myId].bombs > 0 && (path[bombermans[myId].pos.x][bombermans[myId].pos.y] >= MIN_BOMB || path[bombermans[myId].pos.x][bombermans[myId].pos.y] == current_max)) {
                 decision = "BOMB";
                 Bomb newBomb = new Bomb(bombermans[myId].pos.x, bombermans[myId].pos.y, 8, bombermans[myId].range);
@@ -156,11 +158,16 @@ public class Player {
                 }
                 path = addValueAround(path, bombermans[myId].pos, 200);
                 toGo = findMax(path);
-                System.err.println("wanna bomb, but is it safe ?");
+                if(logging)  System.err.println("wanna bomb, but is it safe ?");
                 if (current_max < 0) {
-                    System.err.println("FUCKING NOT SAFE");
+                    if(logging)   System.err.println("FUCKING NOT SAFE");
                     decision = "MOVE";
-                    avoidingPosition.add(bombermans[myId].pos.x, bombermans[myId].pos.y, 5);
+                    path = pathCopy;
+                    toGo = findMax(path);
+                    if(logging)    printMatrice(path);
+
+                    // avoid staying here if posible
+                    avoidingPosition.add(bombermans[myId].pos.x, bombermans[myId].pos.y, 5, -100);
                 } else {
                     bombs.add(newBomb);
                     int[][] nextPlayerValue =
@@ -170,14 +177,14 @@ public class Player {
                         path[explose.x][explose.y] = -1000;
                     }
 
-                    System.err.println("guessing my next mat will be :");
+                    if(logging)   System.err.println("guessing my next mat will be :");
 
                     printMatrice(nextPlayerValue);
                     findMax(nextPlayerValue);
                     if (current_max < 10) {
-                        System.err.println("NOT SAFE");
+                        if(logging)    System.err.println("NOT SAFE");
                         decision = "MOVE";
-                        avoidingPosition.add(bombermans[myId].pos.x, bombermans[myId].pos.y, 5);
+                        avoidingPosition.add(bombermans[myId].pos.x, bombermans[myId].pos.y, 5, -1000);
                     }
                 }
 
@@ -186,10 +193,10 @@ public class Player {
                 path = addRangeUpItemValue(path, rangeUpItems);
                 toGo = findMax(path);
             }
-            System.err.println("go to " + toGo);
-            System.err.println("current max is :" + current_max);
+            if(logging)  System.err.println("go to " + toGo);
+            if(logging)  System.err.println("current max is :" + current_max);
 
-            printMatrice(path);
+            if(logging)  printMatrice(path);
 
             toGo = goAvoidingPosition(toGo, bombermans[myId].pos, willExploseAeraIn1Or2);
             printer.println(decision + " " + toGo.x + " " + toGo.y);
@@ -197,7 +204,15 @@ public class Player {
             avoidingPosition.reduceCount();
         }
     }
-
+    public static int[][] deepCopyIntMatrix(int[][] input) {
+        if (input == null)
+            return null;
+        int[][] result = new int[input.length][];
+        for (int r = 0; r < input.length; r++) {
+            result[r] = input[r].clone();
+        }
+        return result;
+    }
     private static Position guessingNextPosition(Position mine, Position toGO) {
         return goAvoidingPosition(toGO, mine, Collections.emptyList());
     }
@@ -555,12 +570,12 @@ public class Player {
     static class AvoidingPosition {
         List<PositonCount> list = new ArrayList<>();
 
-        void add(int x, int y, int count) {
-            list.add(new PositonCount(new Position(x, y), count));
+        void add(int x, int y, int count, int value) {
+            list.add(new PositonCount(new Position(x, y), count, value));
         }
 
         void processAvoiding(int[][] mat) {
-            list.forEach(posC -> mat[posC.pos.x][posC.pos.y] += -1000);
+            list.forEach(posC -> mat[posC.pos.x][posC.pos.y] += posC.value);
         }
 
         void reduceCount() {
@@ -575,10 +590,12 @@ public class Player {
     static class PositonCount {
         Position pos;
         int count;
+        int value;
 
-        public PositonCount(Position pos, int count) {
+        public PositonCount(Position pos, int count, int value) {
             this.pos = pos;
             this.count = count;
+            this.value = value;
         }
     }
     static class Move {
@@ -602,7 +619,21 @@ public class Player {
                     '}';
         }
 }
+    public static void purge(){
+        if (in != null) in.close();
+        in = null;
+        if (printer != null)  printer.close();
+        printer = null;
+        avoidingPosition = new AvoidingPosition();
+        bombermans = new BomberMan[4];
+        bombItems = null;
+        rangeUpItems= null;
+        current_max = 0;
+        map = null;
+        bombs = null;
 
+
+    }
 
 }
 
